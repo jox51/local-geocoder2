@@ -28,43 +28,46 @@ function checkGeonamesDataExists(dataPath) {
 
 // Initialize function
 async function initializeGeocoder() {
-  const dataPath = process.env.GEONAMES_DATA_PATH || '/app/geonames_dump';
-  
   console.log('Initializing Geocoder…');
 
-  if (process.env.DOWNLOAD_GEONAMES === 'true' && !checkGeonamesDataExists(dataPath)) {
-    try {
+  try {
+    if (process.env.DOWNLOAD_GEONAMES === 'true') {
       console.log('Starting Geonames data download...');
-      await downloadGeonamesData(dataPath);
+      await downloadGeonamesData(
+        process.env.GEONAMES_DATA_PATH || '/app/geonames_dump'
+      );
       console.log('Geonames data download complete!');
-    } catch (error) {
-      console.error('Failed to download Geonames data:', error);
-      process.exit(1);
     }
-  } else {
-    console.log('Using existing Geonames data...');
-  }
 
-  // Initialize geocoder with the data
-  geocoder.init(
-    {
-      dumpDirectory: dataPath,
-      load: {
-        admin1: true,
-        admin2: true,
-        admin3And4: true,
-        alternateNames: true
-      }
-    },
-    function(err) {
-      if (err) {
-        console.error('Failed to initialize geocoder:', err);
-        process.exit(1);
-      }
-      isGeocodeInitialized = true;
-      console.log('Geocoder initialized successfully!');
-    }
-  );
+    // Initialize geocoder with the data - with reduced data loading
+    return new Promise((resolve, reject) => {
+      geocoder.init(
+        {
+          dumpDirectory: process.env.GEONAMES_DATA_PATH || '/app/geonames_dump',
+          load: {
+            admin1: true,
+            admin2: true,
+            admin3And4: false,  // Reduce memory usage
+            alternateNames: false  // Reduce memory usage
+          },
+          countries: process.env.GEOCODER_COUNTRIES?.split(',') || [] // Limit to specific countries if needed
+        },
+        function(err) {
+          if (err) {
+            console.error('Failed to initialize geocoder:', err);
+            reject(err);
+            return;
+          }
+          isGeocodeInitialized = true;
+          console.log('Geocoder initialized successfully!');
+          resolve();
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Initialization error:', error);
+    throw error;
+  }
 }
 
 app.use(cors());
