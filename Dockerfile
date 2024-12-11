@@ -28,9 +28,9 @@ RUN cat package.json | \
     jq 'del(.scripts.postinstall)' > temp.json && \
     mv temp.json package.json
 
-# Install dependencies
-RUN npm install express cors && \
-    npm install --production
+# Install ALL dependencies (including devDependencies where express is located)
+RUN npm install && \
+    npm install express cors --save
 
 # Now copy the rest of the application
 COPY . .
