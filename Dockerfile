@@ -21,11 +21,10 @@ RUN mkdir -p \
 COPY package*.json ./
 
 RUN cat package.json | \
-    jq 'del(.scripts.postinstall)' > temp.json && \
+    jq '.dependencies = (.dependencies + .devDependencies) | del(.devDependencies)' > temp.json && \
     mv temp.json package.json
 
-RUN npm install express cors && \
-    npm install --production
+RUN npm install --production=false
 
 COPY . .
 
