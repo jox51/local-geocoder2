@@ -18,22 +18,27 @@ RUN mkdir -p \
     /app/geonames_dump/alternate_names \
     /app/geonames_dump/cities
 
+# Copy all files needed for installation
 COPY package*.json ./
+COPY postinstall.js ./
+COPY index.js ./
+
+# Remove postinstall script temporarily
+RUN cat package.json | \
+    jq 'del(.scripts.postinstall)' > temp.json && \
+    mv temp.json package.json
 
 # Install dependencies
-RUN npm install express cors dotenv && \
+RUN npm install express cors && \
     npm install --production
 
+# Now copy the rest of the application
 COPY . .
-
-ENV NODE_ENV=production \
-    PORT=5636 \
-    HOST=0.0.0.0 \
-    NODE_OPTIONS=--max-old-space-size=4096 \
-    DOWNLOAD_GEONAMES=true \
-    GEONAMES_DATA_PATH=/app/geonames_dump
 
 EXPOSE 5636
 
-CMD ["node", "app.js"]
+ENV NODE_ENV=production \
+    PORT=5636 \
+    HOST=0.0.0.0
 
+CMD ["node", "app.js"]
