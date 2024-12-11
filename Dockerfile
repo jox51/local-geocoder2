@@ -20,20 +20,20 @@ RUN mkdir -p \
 
 COPY package*.json ./
 
-RUN cat package.json | \
-    jq '.dependencies = (.dependencies + .devDependencies) | del(.devDependencies)' > temp.json && \
-    mv temp.json package.json
-
-RUN npm install --production=false
+# Install dependencies
+RUN npm install express cors dotenv && \
+    npm install --production
 
 COPY . .
-
-EXPOSE 5636
 
 ENV NODE_ENV=production \
     PORT=5636 \
     HOST=0.0.0.0 \
-    NODE_OPTIONS="--max-old-space-size=4096"
+    NODE_OPTIONS=--max-old-space-size=4096 \
+    DOWNLOAD_GEONAMES=true \
+    GEONAMES_DATA_PATH=/app/geonames_dump
+
+EXPOSE 5636
 
 CMD ["node", "app.js"]
 
