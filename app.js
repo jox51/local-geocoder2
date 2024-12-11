@@ -2,6 +2,8 @@
 
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const app = express();
 const geocoder = require('./index.js');
 const { countryMappings, stateMappings } = require('./mappings');
@@ -9,12 +11,61 @@ const { downloadGeonamesData } = require('./utils/downloadGeonames');
 
 let isGeocodeInitialized = false;
 
-// // CORS configuration
-// const corsOptions = {
-//   origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
-//   methods: ['GET'],
-//   optionsSuccessStatus: 200
-// };
+// Helper function to check if data exists
+function checkGeonamesDataExists(dataPath) {
+  const requiredFiles = [
+    'admin1_codes/admin1CodesASCII.txt',
+    'admin2_codes/admin2Codes.txt',
+    'all_countries/allCountries.txt',
+    'alternate_names/alternateNames.txt',
+    'cities/cities500.txt'
+  ];
+
+  return requiredFiles.every(file => 
+    fs.existsSync(path.join(dataPath, file))
+  );
+}
+
+// Initialize function
+async function initializeGeocoder() {
+  const dataPath = process.env.GEONAMES_DATA_PATH || '/app/geonames_dump';
+  
+  console.log('Initializing Geocoder…');
+
+  if (process.env.DOWNLOAD_GEONAMES === 'true' && !checkGeonamesDataExists(dataPath)) {
+    try {
+      console.log('Starting Geonames data download...');
+      await downloadGeonamesData(dataPath);
+      console.log('Geonames data download complete!');
+    } catch (error) {
+      console.error('Failed to download Geonames data:', error);
+      process.exit(1);
+    }
+  } else {
+    console.log('Using existing Geonames data...');
+  }
+
+  // Initialize geocoder with the data
+  geocoder.init(
+    {
+      dumpDirectory: dataPath,
+      load: {
+        admin1: true,
+        admin2: true,
+        admin3And4: true,
+        alternateNames: true
+      }
+    },
+    function(err) {
+      if (err) {
+        console.error('Failed to initialize geocoder:', err);
+        process.exit(1);
+      }
+      isGeocodeInitialized = true;
+      console.log('Geocoder initialized successfully!');
+    }
+  );
+}
 
 app.use(cors());
 
@@ -117,54 +168,11 @@ app.get('/geocode', function (req, res) {
   });
 });
 
-const initializeApp = async () => {
-  const PORT = process.env.PORT || 5636;
-  const HOST = process.env.HOST || '0.0.0.0';
+// Start the server and initialize
+const PORT = process.env.PORT || 5636;
+const HOST = process.env.HOST || '0.0.0.0';
 
-  if (process.env.DOWNLOAD_GEONAMES === 'true') {
-    try {
-      console.log('Starting Geonames data download...');
-      await downloadGeonamesData(
-        process.env.GEONAMES_DATA_PATH || '/app/geonames_dump'
-      );
-      console.log('Geonames data download complete!');
-    } catch (error) {
-      console.error('Failed to download Geonames data:', error);
-      process.exit(1);
-    }
-  }
-
-  app.listen(PORT, HOST, () => {
-    console.log(`Server running on ${HOST}:${PORT}`);
-    console.log('Initializing Geocoder…');
-
-    geocoder.init(
-      {
-        citiesFileOverride: 'cities500',
-        load: {
-          admin1: true,
-          admin2: true,
-          admin3And4: true,
-          alternateNames: true,
-        },
-        countries: [],
-      },
-      function () {
-        console.log('Geocoder initialized and ready.');
-        console.log('Endpoints:');
-        console.log(`- http://${HOST}:${PORT}/healthcheck`);
-        console.log(`- http://${HOST}:${PORT}/deep-healthcheck`);
-        console.log(`- http://${HOST}:${PORT}/reverse-geocode`);
-        console.log(`- http://${HOST}:${PORT}/geocode`);
-        console.log('Examples:');
-        console.log(
-          `- http://${HOST}:${PORT}/reverse-geocode?latitude=54.6875248&longitude=9.7617254`
-        );
-        console.log(`- http://${HOST}:${PORT}/geocode?location=London`);
-        isGeocodeInitialized = true;
-      }
-    );
-  });
-};
-
-initializeApp().catch(console.error);
+app.listen(PORT, HOST, () => {
+  console.log(`Server running on ${HOST}:${PORT}`);
+  initializeGeocoder();
+});
