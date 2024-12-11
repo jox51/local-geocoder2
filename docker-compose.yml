@@ -1,7 +1,5 @@
 services:
   local-geocoder:
-    image: jox51/local-geocoder:latest
-    container_name: local-geocoder
     build:
       context: .
       dockerfile: Dockerfile
