@@ -1,0 +1,42 @@
+services:
+  local-geocoder:
+    image: jox51/local-geocoder:latest
+    container_name: local-geocoder
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '5636:5636'
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=5636
+      - HOST=0.0.0.0
+      - NODE_OPTIONS=--max-old-space-size=4096
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+        reservations:
+          memory: 4G
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://0.0.0.0:5636/healthcheck']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    volumes:
+      - geonames_data:/app/geonames_dump
+    networks:
+      - geocoder-network
+
+volumes:
+  geonames_data:
+    name: geocoder_geonames_data
+
+networks:
+  geocoder-network:
+    name: geocoder-network
+    driver: bridge
